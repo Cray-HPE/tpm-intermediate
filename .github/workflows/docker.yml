@@ -1,0 +1,33 @@
+---
+name: Build and Deploy Container
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - 'releases/**'
+
+jobs:
+  changed_source:
+    uses: ./.github/workflows/changed-source.yml
+
+  status:
+    needs: changed_source
+    if: needs.changed_source.outputs.changed
+    uses: ./.github/workflows/branch-status.yml
+
+  publish:
+    uses: ./.github/workflows/publish-container.yml
+    needs:
+      - changed_source
+      - status
+    if: needs.changed_source.outputs.changed
+    with:
+      status: ${{ needs.status.outputs.status }}
+    secrets:
+      artifactory_password: ${{ secrets.ARTIFACTORY_ALGOL60_TOKEN }}
+      artifactory_username: ${{ secrets.ARTIFACTORY_ALGOL60_USERNAME }}
+      cosign_gcp_service_account: ${{ secrets.COSIGN_GCP_SERVICE_ACCOUNT }}
+      cosign_gcp_workload_identity_provider: ${{ secrets.COSIGN_GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      cosign_key: ${{ secrets.COSIGN_KEY }}

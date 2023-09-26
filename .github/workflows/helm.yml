@@ -1,0 +1,60 @@
+---
+name: Helm test and build
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - 'releases/**'
+
+jobs:
+  changed-charts:
+    uses: ./.github/workflows/helm-changed.yml
+
+  pluto:
+    needs: changed-charts
+    if: ${{ needs.changed-charts.outputs.count > 0 }}
+    uses: ./.github/workflows/helm-pluto.yml
+    with:
+      kubernetes_version: '1.22.17'
+      charts: ${{ needs.changed-charts.outputs.charts }}
+
+  lint:
+    needs: changed-charts
+    if: ${{ needs.changed-charts.outputs.count > 0 }}
+    uses: ./.github/workflows/helm-lint.yml
+    with:
+      charts: ${{ needs.changed-charts.outputs.charts }}
+    secrets:
+        artifactory_password: ${{ secrets.ARTIFACTORY_ALGOL60_TOKEN }}
+        artifactory_username: ${{ secrets.ARTIFACTORY_ALGOL60_USERNAME }}
+
+  status:
+    needs: changed-charts
+    if: ${{ needs.changed-charts.outputs.count > 0 }}
+    uses: ./.github/workflows/branch-status.yml
+
+  publish:
+    needs:
+      - changed-charts
+      - lint
+      - pluto
+      - status
+    if: ${{
+          github.event.pull_request.merged == true &&
+          (
+              github.event.pull_request.base.ref == 'main' ||
+              github.event.pull_request.base.ref == 'dev' ||
+              github.event.pull_request.base.ref == 'test' ||
+              startsWith(github.event.pull_request.base.ref, 'release/')
+          ) &&
+          needs.changed-charts.outputs.count > 0
+        }}
+
+    uses: ./.github/workflows/helm-publish.yml
+    with:
+      charts: ${{ needs.changed-charts.outputs.charts }}
+      status: ${{ needs.status.outputs.status }}
+    secrets:
+      jfrog_conf: ${{ secrets.ARTIFACTORY_ALGOL60_JFROG_CLI_CONFIGURATION }}

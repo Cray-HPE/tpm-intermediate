@@ -1,0 +1,138 @@
+#
+# MIT License
+#
+# (C) Copyright 2023 Hewlett Packard Enterprise Development LP
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+# OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+# ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+# OTHER DEALINGS IN THE SOFTWARE.
+#
+---
+name: Build image
+
+on:
+  workflow_call:
+    inputs:
+      status:
+        description: Branch Status
+        type: string
+        required: true
+      registry:
+        description: Docker Registry for container upload
+        default: artifactory.algol60.net
+        type: string
+    secrets:
+      artifactory_username:
+        description: Username for Helm repository and Docker registry
+        required: true
+      artifactory_password:
+        description: Password for Helm repository and Docker registry
+        required: true
+      cosign_gcp_workload_identity_provider:
+        description: "Google Cloud Workload Identity Provider"
+        required: true
+      cosign_gcp_service_account:
+        description: "Google Cloud Service Account"
+        required: true
+      cosign_key:
+        description: "cosign key"
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to algol60 Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ inputs.registry }}
+          username: ${{ secrets.artifactory_username }}
+          password: ${{ secrets.artifactory_password }}
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@main
+        with:
+          cosign-release: 'v1.0.0'
+
+      - name: Authenticate to GCP with Workload Identity Provider
+        uses: google-github-actions/auth@v0
+        with:
+          workload_identity_provider: ${{ secrets.cosign_gcp_workload_identity_provider }}
+          service_account: ${{ secrets.cosign_gcp_service_account }}
+
+      - name: Set up Cloud SDK for Signing
+        uses: google-github-actions/setup-gcloud@v0
+
+      - name: Get Project info
+        id: info
+        run: |
+          echo "name=${GITHUB_REPOSITORY#*/}" >> $GITHUB_OUTPUT
+          echo "version=$(cat .version)" >> $GITHUB_OUTPUT
+          echo "now=$(date +'%Y-%m-%dT%H:%M:%S')" >> $GITHUB_OUTPUT
+          echo "timestamp=$(date +'%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
+          echo "gitsha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - id: base_images
+        run: |
+          echo "::group::Evaluate Base Images"
+          base_images=""
+          for image in $(grep -i -E '^FROM .+:.+' ./Dockerfile | awk '{ print $2 }'); do
+              echo "Pulling image $image ..."
+              docker pull $image
+              base_images="${base_images} $(docker inspect $image --format '{{ index .RepoDigests 0 }}')"
+          done
+          base_images=${base_images# }
+          echo "base_images=${base_images// /,}" >> $GITHUB_OUTPUT
+          echo "::endgroup::"
+        shell: bash
+
+      - name: Evaluate Docker Metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ inputs.registry }}/csm-docker/${{ inputs.status }}/${{ steps.info.outputs.name }}
+          tags: type=raw,value=${{ steps.info.outputs.version }}
+          labels: |
+            org.opencontainers.image.vendor=Hewlett Packard Enterprise Development LP
+            baseImages=${{ steps.base_images.outputs.base_images }}
+            buildDate=${{ steps.info.outputs.now }}
+
+
+      - name: Build Image
+        uses: docker/build-push-action@v4
+        with:
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Sign
+        run: |
+            COSIGN_KEY=${{ secrets.cosign_key }} cosign sign -key ${{ secrets.cosign_key }} \
+            -a GIT_HASH=${{ steps.info.outputs.gitsha }} ${{ inputs.registry }}/csm-docker/${{ inputs.status }}/${{ steps.info.outputs.name }}:${{ steps.info.outputs.version }}
+            echo "::notice::Signed and pushed image ${{ inputs.docker_repo }}:${{ inputs.docker_tag }}"
+        shell: bash

@@ -1,0 +1,54 @@
+---
+name: Publish Helm Charts
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      charts:
+        description: 'List of Changed Charts'
+        required: true
+        type: string
+      status:
+        description: "Status of Chart (stable, unstable)"
+        type: string
+        default: unstable
+    secrets:
+      jfrog_conf:
+        description: JFrog CLI configuration with permissions to upload artifacts to Artifactory
+        required: true
+
+jobs:
+  run:
+    name: Build and Publish Helm charts
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJSON(inputs.charts) }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Setup helm
+      uses: azure/setup-helm@v3
+      with:
+        version: v3.10.2
+
+    - name: Package Charts
+      run: helm package -d ./.packaged ./charts/${{ matrix.chart }}
+
+    - name: Setup jfrog cli
+      uses: jfrog/setup-jfrog-cli@v3
+      env:
+        JF_ENV_1: ${{ secrets.jfrog_conf }}
+
+    - name: Publish Charts
+      run: |
+        cd ./.packaged || exit 1
+        for chart in *.tgz; do
+          shortname="$(echo $chart | sed 's/-[0-9]*\.[0-9]*\.[0-9]*\.tgz//')"
+          jfrog rt upload --detailed-summary "$chart" "csm-helm-charts/${{ inputs.status }}/$shortname"
+        done

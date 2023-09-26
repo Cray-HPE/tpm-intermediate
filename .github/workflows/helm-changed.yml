@@ -1,0 +1,52 @@
+---
+name: List Changed Charts
+
+on:
+  workflow_call:
+    outputs:
+      charts:
+        description: List of changed charts
+        value: ${{ jobs.run.outputs.charts }}
+      count:
+        description: Number of changed charts
+        value: ${{ jobs.run.outputs.count }}
+
+permissions:
+  contents: read
+
+
+jobs:
+  run:
+    name: Changed Charts
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+
+      - name: Count Changed Charts
+        id: count
+        run: >
+          echo "count=$(git diff --name-only HEAD HEAD^ charts/ | cut -d/ -f1,2 | uniq | wc -l)" >> $GITHUB_OUTPUT
+
+      - name: Test Changed Charts
+        run: |
+           git diff --name-only HEAD HEAD^ charts/ | cut -d/ -f2 | sort -u
+
+      - name: List Changed Charts
+        id: list
+        run: >
+           echo "charts=$(git diff --name-only HEAD HEAD^ charts/ | cut -d/ -f2 | sort -u |
+           uniq | jq -cR 'split(" ") | {chart: .}')" >> $GITHUB_OUTPUT
+
+      - name: Display changed chart
+        run: |
+          echo "Charts: ${{ steps.list.outputs.charts }}"
+          echo "Count: ${{ steps.count.outputs.count }}"
+
+    outputs:
+      charts: ${{ steps.list.outputs.charts }}
+      count: ${{ steps.count.outputs.count }}

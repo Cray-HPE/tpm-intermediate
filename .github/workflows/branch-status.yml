@@ -1,0 +1,63 @@
+#
+# MIT License
+#
+# (C) Copyright 2023 Hewlett Packard Enterprise Development LP
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+# OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+# ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+# OTHER DEALINGS IN THE SOFTWARE.
+#
+---
+name: Branch Status
+
+on:
+  workflow_call:
+    outputs:
+      status:
+        description: Branch Status
+        value: ${{ jobs.run.outputs.status }}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    name: Branch Status
+    steps:
+      - name: Set branch status
+        id: status
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            branch=$GITHUB_BASE_REF
+          else
+            branch=$GITHUB_REF
+          fi
+          echo "Branch: $branch (${branch#refs/heads/})"
+          case "${branch#refs/heads/}" in
+            main|release/*)
+              echo "branch=stable" >> $GITHUB_OUTPUT
+              echo "Artifact Status: Stable" >> $GITHUB_STEP_SUMMARY
+              ;;
+            test)
+              echo "branch=test" >> $GITHUB_OUTPUT
+              echo "Artifact Status: Test" >> $GITHUB_STEP_SUMMARY
+              ;;
+            *)
+              echo "branch=unstable" >> $GITHUB_OUTPUT
+              echo "Artifact Status: Unstable" >> $GITHUB_STEP_SUMMARY
+                ;;
+            esac
+    outputs:
+      status: ${{ steps.status.outputs.branch }}

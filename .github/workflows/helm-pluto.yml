@@ -1,0 +1,46 @@
+---
+name: Kubernetes Deprecation Check
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      charts:
+        description: 'List of Changed Charts'
+        required: true
+        type: string
+      helm_version:
+        description: 'Version of Helm to Intall'
+        required: false
+        type: string
+        default: 'v3.11.3'
+      kubernetes_version:
+        description: 'Kubernetes Version to test against'
+        required: true
+        type: string
+
+jobs:
+  run:
+    name: Pluto
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      matrix: ${{ fromJSON(inputs.charts) }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: ${{ inputs.helm_version }}
+
+      - name: Download Pluto
+        uses: FairwindsOps/pluto/github-action@master
+
+      - name: Pluto
+        run: |
+          set -o pipefail
+          helm template "./charts/${{ matrix.chart }}" | pluto detect --target-versions k8s=v${{ inputs.kubernetes_version }} -
