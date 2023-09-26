@@ -50,10 +50,6 @@ jobs:
               echo "branch=stable" >> $GITHUB_OUTPUT
               echo "Artifact Status: Stable" >> $GITHUB_STEP_SUMMARY
               ;;
-            test)
-              echo "branch=test" >> $GITHUB_OUTPUT
-              echo "Artifact Status: Test" >> $GITHUB_STEP_SUMMARY
-              ;;
             *)
               echo "branch=unstable" >> $GITHUB_OUTPUT
               echo "Artifact Status: Unstable" >> $GITHUB_STEP_SUMMARY
