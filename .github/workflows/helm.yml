@@ -41,17 +41,7 @@ jobs:
       - lint
       - pluto
       - status
-    if: ${{
-          github.event.pull_request.merged == true &&
-          (
-              github.event.pull_request.base.ref == 'main' ||
-              github.event.pull_request.base.ref == 'dev' ||
-              github.event.pull_request.base.ref == 'test' ||
-              startsWith(github.event.pull_request.base.ref, 'release/')
-          ) &&
-          needs.changed-charts.outputs.count > 0
-        }}
-
+    if: github.event.pull_request.merged == true
     uses: ./.github/workflows/helm-publish.yml
     with:
       charts: ${{ needs.changed-charts.outputs.charts }}
