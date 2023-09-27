@@ -26,11 +26,6 @@
 # Declare variables to be passed into your templates.
 nameOverride: ""
 
-global:
-  chart:
-    name: ""     # set at deploy time automatically, no need to ever set explicitly
-    version: ""  # set at deploy time automatically, no need to ever set explicitly
-
 image:
   repository: artifactory.algol60.net/csm-docker/stable/tpm-intermediate
   tag: 1.0.0
