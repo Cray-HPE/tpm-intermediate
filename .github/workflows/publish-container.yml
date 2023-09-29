@@ -131,6 +131,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Sign
+        if: ${{ github.event_name != 'pull_request' }}
         run: |
             COSIGN_KEY=${{ secrets.cosign_key }} cosign sign -key ${{ secrets.cosign_key }} \
             -a GIT_HASH=${{ steps.info.outputs.gitsha }} ${{ inputs.registry }}/csm-docker/${{ inputs.status }}/${{ steps.info.outputs.name }}:${{ steps.info.outputs.version }}
