@@ -1,4 +1,4 @@
-#!/bin/ash
+#!/bin/ash -x
 #
 # MIT License
 #
@@ -73,7 +73,7 @@ VAULT_TOKEN=$(curl --request POST \
 	--data '{"jwt": "'"$KUBE_TOKEN"'", "role": "'"$ROLE"'"}' \
 	$VAULT_ADDR/v1/auth/kubernetes/login | jq -r .auth.client_token)
 
-/vault login "$VAULT_TOKEN" >/dev/null 2>&1
+/vault login "$VAULT_TOKEN"
 
 # Create an interemediate CA for each tpm instance. This is required on a per
 # namespace basis because pods cannot read secrets in other namespaces.
