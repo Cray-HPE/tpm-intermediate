@@ -4,9 +4,6 @@ name: Build and Deploy Container
 on:
   pull_request:
   push:
-    branches:
-      - main
-      - 'releases/**'
 
 jobs:
   changed_source:
