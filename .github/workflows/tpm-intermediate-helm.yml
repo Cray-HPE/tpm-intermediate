@@ -1,7 +1,7 @@
 #
 # MIT License
 #
-# (C) Copyright 2023 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2021-2025  Hewlett Packard Enterprise Development LP
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -21,39 +21,28 @@
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
 #
----
-name: Branch Status
-
+name: Lint, test, and scan Helm charts
 on:
-  workflow_call:
-    outputs:
-      status:
-        description: Branch Status
-        value: ${{ jobs.run.outputs.status }}
-
+  pull_request:
+    branches:
+      - main
+      - release/**
+  workflow_dispatch:
 jobs:
-  run:
-    runs-on: ubuntu-latest
-    name: Branch Status
-    steps:
-      - name: Set branch status
-        id: status
-        run: |
-          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
-            branch=$GITHUB_BASE_REF
-          else
-            branch=$GITHUB_REF
-          fi
-          echo "Branch: $branch (${branch#refs/heads/})"
-          case "${branch#refs/heads/}" in
-            main|release/*)
-              echo "branch=stable" >> $GITHUB_OUTPUT
-              echo "Artifact Status: Stable" >> $GITHUB_STEP_SUMMARY
-              ;;
-            *)
-              echo "branch=unstable" >> $GITHUB_OUTPUT
-              echo "Artifact Status: Unstable" >> $GITHUB_STEP_SUMMARY
-                ;;
-            esac
-    outputs:
-      status: ${{ steps.status.outputs.branch }}
+  lint-test-scan:
+    uses: Cray-HPE/.github/.github/workflows/charts-lint-test-scan.yml@main
+    with:
+      scan-charts: false
+      scan-images: false
+      lint-charts: ${{ github.event_name == 'pull_request' }}
+      ct-config: |
+        chart-dirs:
+          - kubernetes
+        chart-repos:
+          - csm-algol60=https://artifactory.algol60.net/artifactory/csm-helm-charts
+        validate-maintainers: false
+    secrets:
+      snyk-token: ${{ secrets.SNYK_TOKEN }}
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+      artifactory-username: ${{ secrets.ARTIFACTORY_ALGOL60_READONLY_USERNAME }}
+      artifactory-password: ${{ secrets.ARTIFACTORY_ALGOL60_READONLY_TOKEN }}

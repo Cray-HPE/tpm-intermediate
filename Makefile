@@ -22,10 +22,20 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 #
 NAME ?= tpm-intermediate
+CHART_PATH ?= kubernetes
+CHART_VERSION ?= local
 export VERSION ?= $(shell cat .version)-local
 export DOCKER_IMAGE ?= ${NAME}:${VERSION}
 
-all: image
+all: image chart
+chart: chart_setup chart_package
+
+chart_setup:
+		mkdir -p ${CHART_PATH}/.packaged
+
+chart_package:
+		helm dep up ${CHART_PATH}/${NAME}
+		helm package ${CHART_PATH}/${NAME} -d ${CHART_PATH}/.packaged --version ${CHART_VERSION}
 
 image:
 		docker build --pull ${DOCKER_ARGS} --tag '${NAME}:${VERSION}' .
