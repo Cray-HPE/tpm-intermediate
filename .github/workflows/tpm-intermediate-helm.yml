@@ -33,10 +33,11 @@ jobs:
     uses: Cray-HPE/.github/.github/workflows/charts-lint-test-scan.yml@main
     with:
       scan-charts: false
+      scan-images: false
       lint-charts: ${{ github.event_name == 'pull_request' }}
       ct-config: |
         chart-dirs:
-          - charts
+          - kubernetes
         chart-repos:
           - csm-algol60=https://artifactory.algol60.net/artifactory/csm-helm-charts
         validate-maintainers: false

@@ -22,7 +22,7 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 #
 NAME ?= tpm-intermediate
-CHART_PATH ?= charts
+CHART_PATH ?= kubernetes
 CHART_VERSION ?= local
 export VERSION ?= $(shell cat .version)-local
 export DOCKER_IMAGE ?= ${NAME}:${VERSION}
