@@ -23,7 +23,7 @@
 #
 apiVersion: v2
 name: tpm-intermediate
-version: 1.0.0
+version: 1.0.1
 description: A Helm chart for Kubernetes
 home: https://github.com/Cray-HPE/tpm-intermediate
 maintainers:
